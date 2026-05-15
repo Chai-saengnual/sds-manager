@@ -1,0 +1,100 @@
+version: 1
+plan:
+  name: SDS Manager Full Implementation
+  max_concurrency: 5
+  max_consecutive_failures: 2
+  max_cycles: 10
+tasks:
+  - id: api-routes
+    title: Complete SDS API routes
+    prompt: |
+      Complete all remaining API routes for the SDS Manager application.
+
+      Project workspace: /Users/chalermpolsaengnual/Documents/Dev-Projects/Project-Minimax_1
+
+      Create the following API routes:
+
+      1. **GET /api/audit-logs/route.ts** - List audit logs with pagination and filters
+      2. **GET /api/export/route.ts** - Export SDS records (xlsx, csv, pdf)
+      3. **GET/POST /api/admin/users/route.ts** - User management
+      4. **GET/PUT /api/admin/settings/route.ts** - System settings
+      5. **POST /api/notifications/send/route.ts** - Send notification emails
+      6. **GET /api/ai/update-agent/route.ts** - AI Update Agent
+      7. **POST /api/ai/duplicate-detection/route.ts** - Detect duplicates
+
+      Use proper auth, zod validation, audit logging. Write complete code.
+    assigned_to: coder
+    verified_by: verifier
+    verify_prompt: Verify API routes are complete with proper auth and error handling
+    timeout_ms: 1800000
+
+  - id: ui-components
+    title: Complete remaining UI components
+    prompt: |
+      Complete remaining UI components for SDS Manager.
+
+      Project workspace: /Users/chalermpolsaengnual/Documents/Dev-Projects/Project-Minimax_1
+
+      Create: data-table.tsx, sds-form.tsx, file-upload.tsx, qr-code.tsx
+      Create pages: admin/page.tsx, admin/users/page.tsx, admin/settings/page.tsx, admin/audit-logs/page.tsx
+
+      Use existing UI primitives and support dark mode.
+    assigned_to: coder
+    verified_by: verifier
+    verify_prompt: Verify UI components are complete and working
+    timeout_ms: 1800000
+
+  - id: export-cron
+    title: Export utilities and cron jobs
+    prompt: |
+      Create export utilities and cron jobs for SDS Manager.
+
+      Project workspace: /Users/chalermpolsaengnual/Documents/Dev-Projects/Project-Minimax_1
+
+      Create: src/lib/export.ts, src/lib/email.ts, src/app/api/cron/update-check/route.ts
+
+      Export: Excel (xlsx), CSV, PDF (jspdf). Email: resend. Cron: scan for outdated records.
+    assigned_to: coder
+    verified_by: verifier
+    verify_prompt: Verify export and email utilities work correctly
+    timeout_ms: 1800000
+
+  - id: testing-docs
+    title: Unit tests and documentation
+    prompt: |
+      Create unit tests and finalize documentation.
+
+      Project workspace: /Users/chalermpolsaengnual/Documents/Dev-Projects/Project-Minimax_1
+
+      Create: src/__tests__/lib/utils.test.ts, src/__tests__/lib/export.test.ts
+      Enhance: docs/api.md, README.md
+      Create: .github/workflows/ci.yml
+
+      Use Vitest for testing.
+    assigned_to: coder
+    verified_by: verifier
+    verify_prompt: Verify tests and documentation are complete
+    timeout_ms: 1800000
+
+  - id: verify-complete
+    title: Final verification
+    prompt: |
+      Perform final verification of SDS Manager.
+
+      Project workspace: /Users/chalermpolsaengnual/Documents/Dev-Projects/Project-Minimax_1
+
+      1. Run TypeScript check (npx tsc --noEmit)
+      2. Verify all pages render
+      3. Check API routes structure
+      4. Create deliverable.md summary
+
+      Report any issues.
+    assigned_to: verifier
+    depends_on:
+      - api-routes
+      - ui-components
+      - export-cron
+      - testing-docs
+    verified_by: verifier
+    verify_prompt: Final verification - run TypeScript check and verify everything works
+    timeout_ms: 1800000

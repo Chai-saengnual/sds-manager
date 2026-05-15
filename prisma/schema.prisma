@@ -1,0 +1,391 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(VIEWER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  sdsRecords    SdsRecord[]   @relation("CreatedBy")
+  updatedRecords SdsRecord[]  @relation("UpdatedBy")
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token     String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// SDS RECORD MANAGEMENT
+// ============================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  nameTh      String?
+  description String?
+  color       String   @default("#6366f1")
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sdsRecords SdsRecord[]
+
+  @@map("categories")
+}
+
+enum FlammableStatus {
+  FLAMMABLE
+  NON_FLAMMABLE
+  UNKNOWN
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  PENDING_REVIEW
+}
+
+model SdsRecord {
+  id              String           @id @default(cuid())
+  partNumber      String?          @unique
+  productNameEn   String
+  productNameTh   String?
+  categoryId      String?
+  hazardSummary   String?          @db.Text
+  hazardClass     String[]        @default([])
+  flammableStatus FlammableStatus @default(UNKNOWN)
+  status          RecordStatus    @default(ACTIVE)
+  
+  // Dates
+  revisionDate    DateTime?
+  followUpDate    DateTime?
+  nextReviewDate  DateTime?
+  
+  // Supplier & Manufacturer
+  supplier        String?
+  manufacturer    String?
+  
+  // External links
+  productImageUrl String?
+  sdsPdfEnUrl     String?
+  sdsPdfThUrl     String?
+  externalLink    String?
+  
+  // Metadata
+  language        String[]        @default(["en"])
+  tags            String[]        @default([])
+  notes           String?         @db.Text
+  
+  // AI fields
+  aiSummary       String?         @db.Text
+  aiAnalysis      Json?
+  isAiAnalyzed    Boolean         @default(false)
+  
+  // QR Code
+  qrCodeUrl       String?
+  
+  // Status flags
+  isOutdated      Boolean         @default(false)
+  isMissingPdf    Boolean         @default(false)
+  isDuplicate     Boolean         @default(false)
+  
+  // Audit
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  category        Category?       @relation(fields: [categoryId], references: [id])
+  createdBy       User?           @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?           @relation("UpdatedBy", fields: [updatedById], references: [id])
+  uploadedFiles   UploadedFile[]
+  aiAnalyses      AiAnalysisResult[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+
+  @@index([productNameEn])
+  @@index([partNumber])
+  @@index([status])
+  @@index([followUpDate])
+  @@index([categoryId])
+  @@map("sds_records")
+}
+
+// ============================================
+// FILE MANAGEMENT
+// ============================================
+
+enum FileType {
+  SDS_PDF_EN
+  SDS_PDF_TH
+  PRODUCT_IMAGE
+  QR_CODE
+  EXPORT
+  OTHER
+}
+
+model UploadedFile {
+  id          String    @id @default(cuid())
+  sdsRecordId String?
+  fileName    String
+  fileType    FileType
+  fileSize    Int
+  mimeType    String
+  storageKey  String
+  storageUrl  String
+  isUploaded  Boolean   @default(true)
+  uploadedBy  String?
+  createdAt   DateTime  @default(now())
+
+  sdsRecord   SdsRecord? @relation(fields: [sdsRecordId], references: [id], onDelete: Cascade)
+
+  @@map("uploaded_files")
+}
+
+// ============================================
+// AI FEATURES
+// ============================================
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model AiAnalysisResult {
+  id            String          @id @default(cuid())
+  sdsRecordId   String
+  analysisType  String         // "full", "summary", "update_check", "duplicate_detection"
+  status        AnalysisStatus @default(PENDING)
+  
+  // Analysis results
+  extractedData    Json?
+  summary         String?       @db.Text
+  recommendations  String[]     @default([])
+  warnings         String[]      @default([])
+  confidence       Float?
+  
+  // Raw response for debugging
+  rawResponse     String?       @db.Text
+  
+  // Usage tracking
+  tokensUsed      Int?
+  costUsd         Float?
+  
+  errorMessage    String?
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+
+  sdsRecord       SdsRecord     @relation(fields: [sdsRecordId], references: [id], onDelete: Cascade)
+
+  @@index([sdsRecordId])
+  @@index([status])
+  @@map("ai_analysis_results")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  EXPIRATION_REMINDER
+  OVERDUE_ALERT
+  AI_RECOMMENDATION
+  SYSTEM_ALERT
+  AUDIT_NOTIFICATION
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+  BOTH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+model Notification {
+  id            String             @id @default(cuid())
+  userId        String
+  type          NotificationType
+  channel       NotificationChannel @default(EMAIL)
+  status        NotificationStatus  @default(PENDING)
+  
+  // Content
+  title         String
+  titleTh       String?
+  message       String              @db.Text
+  messageTh     String?             @db.Text
+  
+  // Related records
+  sdsRecordId   String?
+  sdsRecord     SdsRecord?          @relation(fields: [sdsRecordId], references: [id])
+  
+  // Scheduling
+  scheduledFor  DateTime?
+  sentAt        DateTime?
+  readAt        DateTime?
+  
+  // Email specifics
+  emailTo       String?
+  emailSubject  String?
+  emailBody     String?             @db.Text
+  
+  createdAt     DateTime            @default(now())
+
+  user          User                @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([scheduledFor])
+  @@map("notifications")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  DOWNLOAD
+  UPLOAD
+  LOGIN
+  LOGOUT
+  EXPORT
+  AI_ANALYSIS
+  BULK_UPDATE
+}
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  userId        String?
+  sdsRecordId   String?
+  action        AuditAction
+  entityType    String     // "sds_record", "user", "category", etc.
+  entityId      String?
+  
+  // Change details
+  changes       Json?       // { field: { old: x, new: y } }
+  oldValues     Json?
+  newValues     Json?
+  
+  // Metadata
+  ipAddress     String?
+  userAgent     String?
+  description   String?
+  descriptionTh String?
+  
+  createdAt     DateTime    @default(now())
+
+  user          User?       @relation(fields: [userId], references: [id])
+  sdsRecord     SdsRecord?  @relation(fields: [sdsRecordId], references: [id])
+
+  @@index([userId])
+  @@index([sdsRecordId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// SYSTEM SETTINGS
+// ============================================
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  type      String   @default("string") // "string", "number", "boolean", "json"
+  group     String   @default("general")
+  label     String?
+  labelTh   String?
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// Default settings keys:
+// - email_reminder_30_days: boolean
+// - email_reminder_60_days: boolean  
+// - email_reminder_90_days: boolean
+// - default_language: string
+// - ai_auto_analyze: boolean
+// - ai_update_threshold_days: number
+// - company_name: string
+// - company_logo: string
