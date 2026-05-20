@@ -1,59 +1,98 @@
-# Facebook → Transcript → Notion
+# Facebook → Transcript → Notion (Manus-like)
 
-Extract spoken content from Facebook videos/reels when captions are not in the page HTML.
+Extract and **understand** Facebook videos/reels, then save to your Notion **บทความ** database.
 
-## Requirements
+## Can I do the same as Manus?
 
-- Python 3.10+
-- `ffmpeg` (system)
-- pip packages in `requirements.txt`
+**Yes — with the right mode:**
 
-## Setup
+| Mode | What you need | Quality vs Manus |
+|------|----------------|------------------|
+| **Caption only** | Nothing extra | Same for Reels where full text is in the post (e.g. หมอปอนด์) |
+| **`run-full.sh`** (OpenAI) | `OPENAI_API_KEY` | Good — Whisper API + GPT summarizes like Manus |
+| **`run-full.sh --gemini`** | `GOOGLE_API_KEY` | **Closest** — watches the actual video (audio + visuals) |
+
+Manus ≈ **download video + multimodal AI + structured report**.  
+This folder automates that inside Cursor.
+
+## Quick start
 
 ```bash
 cd scripts/facebook-to-notion
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+pip3 install --user -r requirements.txt   # once
+
+# Manus-like (recommended) — needs OpenAI key
+export OPENAI_API_KEY=sk-...
+./run-full.sh "https://www.facebook.com/share/v/1NnqQQwRFy/?mibextid=wwXIfr"
+
+# Closest to Manus — needs Google AI key
+export GOOGLE_API_KEY=...
+./run-full.sh "https://www.facebook.com/share/v/..." --gemini
 ```
 
-## Usage
+Outputs in `facebook-extract-out/`:
+
+| File | Use |
+|------|-----|
+| `manus-style-analysis.md` | Full report (like Manus export) |
+| `analysis.json` | Notion properties + body |
+| `notion-draft.md` | Ready for Cursor to push to Notion |
+
+Then in **Cursor**: *“Add to บทความ from `scripts/facebook-to-notion/facebook-extract-out/manus-style-analysis.md`”*
+
+## Step-by-step (manual)
 
 ```bash
-# Full pipeline: metadata + audio download + Thai transcription (default: small model)
-python extract.py "https://www.facebook.com/share/v/1NnqQQwRFy/?mibextid=wwXIfr"
+# 1) Extract audio + transcript
+python extract.py "URL" --transcriber openai   # or local (free, no API key)
 
-# Faster draft (lower accuracy for Thai)
-python extract.py "URL" -o ./my-out --model base
+# 2) Analyze (Manus-style structure)
+export OPENAI_API_KEY=sk-...
+python analyze.py -o ./facebook-extract-out
 
-# Metadata only (no download)
-python extract.py "URL" --metadata-only
+# Gemini (video understanding)
+python extract.py "URL" --download-video
+export GOOGLE_API_KEY=...
+python analyze.py -o ./facebook-extract-out --mode gemini
 ```
 
-## Outputs
+## Cursor workflow (no terminal)
 
-| File | Description |
-|------|-------------|
-| `metadata.json` | Title, uploader, description, duration, URL |
-| `transcript.txt` | Whisper transcription |
-| `notion-draft.md` | Markdown draft for your Notion article DB |
+1. Paste Facebook URL in chat.
+2. Say: **“Run run-full.sh on this URL and add to Notion บทความ”**
+3. Agent runs the script (you add API keys in Cursor **Secrets** / env).
 
-## Notion workflow (Cursor)
+Put keys in project `.env` (gitignored) or cloud agent secrets:
 
-1. Run `extract.py` on the Facebook URL.
-2. Review `transcript.txt` and edit `notion-draft.md` if needed.
-3. In Cursor, ask the agent to add/update a row in your **บทความ** database using the draft.
+```bash
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=...   # optional, for --gemini
+```
 
-## Notes
+## Requirements
 
-- **Public videos** usually work without login. Private or login-walled posts may fail; export cookies for `yt-dlp` if needed (`--cookies cookies.txt`).
-- Reels with full text in `og:title` (e.g. some creator pages) may not need transcription — metadata-only is enough.
-- First run downloads the Whisper model (~150MB for `base`).
+- Python 3.10+, `ffmpeg`
+- `pip install -r requirements.txt`
+- Public Facebook posts (private → `yt-dlp --cookies cookies.txt`)
+
+## Cost (approx.)
+
+| Step | OpenAI |
+|------|--------|
+| Whisper API (~2 min audio) | ~$0.01 |
+| GPT-4o-mini analysis | ~$0.01 |
+| Gemini video (~2 min) | Google free tier often enough |
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| `Video unavailable` | Post may be private; try cookies or a different URL format |
-| Poor Thai accuracy | Use `--model small` |
-| Slow transcription | Use `--model tiny` for drafts |
+| Wrong topic (like our first Whisper draft) | Use `run-full.sh` or `--gemini` — LLM fixes transcript errors |
+| Poor Thai transcript | `--transcriber openai` |
+| `Video unavailable` | Export Facebook cookies for yt-dlp |
+| Reel has full caption in post | `python extract.py URL --metadata-only` — skip transcription |
+
+## Why local Whisper alone isn’t enough
+
+Local Whisper heard “parent–child rules” on a video about **couple dynamics**.  
+Manus (and `--analyze` / Gemini) use **reasoning over the full context**, not raw transcript only.

@@ -44,6 +44,47 @@ def fetch_metadata(url: str) -> dict:
     }
 
 
+def download_video(url: str, out_dir: Path) -> Path:
+    """Download video file for Gemini multimodal analysis."""
+    import yt_dlp
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    template = str(out_dir / "video.%(ext)s")
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "format": "best[height<=720]/best",
+        "outtmpl": template,
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.download([url])
+
+    for ext in ("mp4", "webm", "mkv"):
+        p = out_dir / f"video.{ext}"
+        if p.exists():
+            return p
+    # merged name may differ
+    for p in out_dir.glob("video.*"):
+        if p.suffix in (".mp4", ".webm", ".mkv"):
+            return p
+    raise FileNotFoundError(f"No video file in {out_dir}")
+
+
+def transcribe_openai(audio_path: Path, language: str = "th") -> str:
+    from openai import OpenAI
+
+    client = OpenAI()
+    with open(audio_path, "rb") as audio_file:
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+            language=language if language != "auto" else None,
+        )
+    return result.text.strip()
+
+
 def download_audio(url: str, out_dir: Path) -> Path:
     import yt_dlp
 
@@ -156,6 +197,28 @@ def main() -> int:
         action="store_true",
         help="Only fetch metadata, skip download and transcription",
     )
+    parser.add_argument(
+        "--transcriber",
+        choices=["local", "openai"],
+        default="local",
+        help="local=faster-whisper, openai=Whisper API (needs OPENAI_API_KEY, often better Thai)",
+    )
+    parser.add_argument(
+        "--download-video",
+        action="store_true",
+        help="Also save video.mp4 for Gemini multimodal analysis",
+    )
+    parser.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Run LLM analysis after extract (openai mode; needs OPENAI_API_KEY)",
+    )
+    parser.add_argument(
+        "--analyze-mode",
+        choices=["openai", "gemini"],
+        default="openai",
+        help="With --analyze: use transcript (openai) or video (gemini)",
+    )
     args = parser.parse_args()
 
     lang = None if args.language == "auto" else args.language
@@ -172,12 +235,21 @@ def main() -> int:
     if args.metadata_only:
         return 0
 
+    if args.download_video or args.analyze_mode == "gemini":
+        print("Downloading video...", file=sys.stderr)
+        video = download_video(args.url, out_dir)
+        print(f"Video: {video}", file=sys.stderr)
+
     print("Downloading audio...", file=sys.stderr)
     audio = download_audio(args.url, out_dir)
     print(f"Audio: {audio}", file=sys.stderr)
 
-    print(f"Transcribing with faster-whisper ({args.model})...", file=sys.stderr)
-    transcript = transcribe(audio, args.model, lang)
+    if args.transcriber == "openai":
+        print("Transcribing with OpenAI whisper-1...", file=sys.stderr)
+        transcript = transcribe_openai(audio, args.language)
+    else:
+        print(f"Transcribing with faster-whisper ({args.model})...", file=sys.stderr)
+        transcript = transcribe(audio, args.model, lang)
     (out_dir / "transcript.txt").write_text(transcript, encoding="utf-8")
     print("\n--- TRANSCRIPT ---\n")
     print(transcript)
@@ -185,6 +257,21 @@ def main() -> int:
     draft = build_notion_draft(meta, transcript)
     (out_dir / "notion-draft.md").write_text(draft, encoding="utf-8")
     print(f"\nWrote {out_dir}/notion-draft.md", file=sys.stderr)
+
+    if args.analyze:
+        import subprocess
+
+        analyze_script = Path(__file__).resolve().parent / "analyze.py"
+        cmd = [
+            sys.executable,
+            str(analyze_script),
+            "-o",
+            str(out_dir),
+            "--mode",
+            args.analyze_mode,
+        ]
+        subprocess.run(cmd, check=True)
+
     return 0
 
 
