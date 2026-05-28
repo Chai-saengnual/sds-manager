@@ -1,0 +1,14 @@
+{
+  "session": "{{SESSION_SLUG}}",
+  "database_name": "YOUR_DATABASE_NAME",
+  "database_url": "https://www.notion.so/YOUR_DATABASE_ID",
+  "data_source_id": "YOUR_DATA_SOURCE_UUID",
+  "default_properties": {},
+  "mcp": {
+    "create_tool": "notion-create-pages",
+    "parent": {
+      "type": "data_source_id",
+      "data_source_id": "YOUR_DATA_SOURCE_UUID"
+    }
+  }
+}

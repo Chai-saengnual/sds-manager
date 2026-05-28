@@ -1,7 +1,5 @@
 # Facebook → Transcript → Notion (Manus-like)
 
-> **Canonical Cloud Agent session:** repo [Cursor-AI-Oncloud](https://github.com/Chai-saengnual/Cursor-AI-Oncloud) → `sessions/facebook-article-content/` (see `SESSION.md`). This copy in `sds-manager` is kept in sync for app development.
-
 Extract and **understand** Facebook videos/reels, then save to your Notion **บทความ** database.
 
 ## Can I do the same as Manus?
@@ -20,7 +18,7 @@ This folder automates that inside Cursor.
 ## Quick start
 
 ```bash
-cd scripts/facebook-to-notion
+cd sessions/facebook-article-content/scripts
 pip3 install --user -r requirements.txt   # once
 
 # Manus-like (recommended) — needs OpenAI key
@@ -40,7 +38,9 @@ Outputs in `facebook-extract-out/`:
 | `analysis.json` | Notion properties + body |
 | `notion-draft.md` | Ready for Cursor to push to Notion |
 
-Then in **Cursor**: *“Add to บทความ from `scripts/facebook-to-notion/facebook-extract-out/manus-style-analysis.md`”*
+Then in **Cursor**: *“Add to บทความ from `sessions/facebook-article-content/scripts/facebook-extract-out/manus-style-analysis.md`”*
+
+> Canonical home: repo **Cursor-AI-Oncloud**, session `facebook-article-content`. See `../SESSION.md`.
 
 ## Step-by-step (manual)
 

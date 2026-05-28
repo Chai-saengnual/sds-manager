@@ -1,0 +1,21 @@
+---
+description: Facebook URL → Notion Chai Article (บทความ). Use when user says "add article" with a facebook.com link.
+globs:
+alwaysApply: false
+---
+
+# Facebook article content
+
+When the user shares a Facebook URL and asks to **add article** (or similar):
+
+1. Read `sessions/facebook-article-content/SESSION.md` and `notion-config.json`.
+2. Classify URL: `/share/v/` or reel = video; `/share/p/` = text post.
+3. Run `sessions/facebook-article-content/fetch_og.py` on the share URL.
+4. For videos: run `scripts/extract.py` or `scripts/run-full.sh` if transcript needed; prefer full caption from OG when complete (e.g. หมอปอนด์).
+5. For text posts: use OG + WebFetch on permalink; no yt-dlp unless embedded video.
+6. Create page via Notion MCP `notion-create-pages` with `data_source_id` from config.
+7. Include Thai Summary, Key Takeaways (`<br>` bullets), Personal Action, structured Notes (callout, tables, transcript).
+8. Search Notion for same creator/topic to avoid duplicates and add related links.
+9. Always transcribe when multiple videos share the same OG caption (e.g. Ryan Moresby-White).
+
+Do not skip MCP create — user expects a Notion URL in the response.

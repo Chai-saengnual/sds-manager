@@ -1,0 +1,29 @@
+{
+  "session": "facebook-article-content",
+  "database_name": "Chai Article",
+  "database_url": "https://www.notion.so/4cb9f44ea1034c5ea8946e730312fe38",
+  "data_source_id": "1fd9fdfc-27ca-4750-86b0-b896c4ed6f72",
+  "ancestor": "R-Growth - Self Improvement",
+  "default_properties": {
+    "Media Type": "Article",
+    "Publisher": "Indie",
+    "Status": "Ready to Start",
+    "Review Status": "To Review",
+    "Reading Priority": "Medium"
+  },
+  "categories": [
+    "MindSet",
+    "Self Learning",
+    "Communication Skill",
+    "Leadership",
+    "Management",
+    "Time management"
+  ],
+  "mcp": {
+    "create_tool": "notion-create-pages",
+    "parent": {
+      "type": "data_source_id",
+      "data_source_id": "1fd9fdfc-27ca-4750-86b0-b896c4ed6f72"
+    }
+  }
+}
