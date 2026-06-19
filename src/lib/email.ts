@@ -30,7 +30,7 @@ async function sendEmail(options: EmailOptions): Promise<EmailResult> {
       subject: options.subject,
       html: options.html,
       text: options.text,
-      reply_to: options.replyTo,
+      replyTo: options.replyTo,
       cc: options.cc ? (Array.isArray(options.cc) ? options.cc.join(',') : options.cc) : undefined,
       bcc: options.bcc ? (Array.isArray(options.bcc) ? options.bcc.join(',') : options.bcc) : undefined,
     });

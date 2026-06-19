@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import '@/locales/i18n';
 
-const inter = Inter({ subsets: ['latin', 'thai'] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'SDS Manager - Safety Data Sheet Management System',

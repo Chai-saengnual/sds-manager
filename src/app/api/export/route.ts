@@ -100,21 +100,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (format === 'xlsx') {
-      // Use ExcelJS for xlsx generation
-      const ExcelJS = await import('exceljs');
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = session.user.name || 'SDS Manager';
-      workbook.created = new Date();
-
-      const worksheet = workbook.addWorksheet('SDS Records');
-      const headers = Object.keys(exportData[0] || {});
-      worksheet.addRow(headers);
-
-      exportData.forEach(row => {
-        worksheet.addRow(Object.values(row as Record<string, string | number>));
-      });
-
-      const buffer = await workbook.xlsx.writeBuffer();
+      // Use XLSX (SheetJS) for xlsx generation
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'SDS Records');
+      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
       return new NextResponse(buffer, {
         headers: {

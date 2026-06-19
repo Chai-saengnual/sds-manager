@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { differenceInDays, parseISO } from 'date-fns';
-import { PrismaClient, RecordStatus } from '@prisma/client';
+import { RecordStatus } from '@prisma/client';
 import { sendExpirationReminder } from '@/lib/email';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // Environment configuration
 const OUTDATED_THRESHOLD_DAYS = parseInt(process.env.OUTDATED_THRESHOLD_DAYS || '365', 10);
@@ -138,9 +137,6 @@ async function scanOutdatedRecords(): Promise<UpdateCheckResult> {
         where: {
           role: 'ADMIN',
           isActive: true,
-          email: {
-            not: null,
-          },
         },
       });
 
@@ -148,9 +144,6 @@ async function scanOutdatedRecords(): Promise<UpdateCheckResult> {
         where: {
           role: 'EDITOR',
           isActive: true,
-          email: {
-            not: null,
-          },
         },
         take: 5, // Limit to 5 editors
       });
@@ -189,7 +182,7 @@ async function scanOutdatedRecords(): Promise<UpdateCheckResult> {
         entityId: 'cron-update-check',
         description: 'Update check cron job completed',
         descriptionTh: 'งาน Cron ตรวจสอบการอัปเดตเสร็จสิ้น',
-        changes: result as unknown as Record<string, unknown>,
+        changes: result as never,
       },
     });
   } catch (error) {

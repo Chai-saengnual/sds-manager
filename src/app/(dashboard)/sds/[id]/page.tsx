@@ -23,6 +23,7 @@ import {
   Flame,
   Image as ImageIcon,
 } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/header';

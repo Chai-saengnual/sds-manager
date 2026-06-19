@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const stats = await Promise.all([
       prisma.sdsRecord.count(),
       prisma.sdsRecord.count({ where: { flammableStatus: 'FLAMMABLE' } }),
@@ -17,7 +20,6 @@ export async function GET(request: NextRequest) {
       prisma.sdsRecord.count({ where: { isAiAnalyzed: true } }),
     ]);
 
-    // Get recent audit logs
     const recentActivity = await prisma.auditLog.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
@@ -27,20 +29,15 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get expiring records (next 30 days)
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    
+
     const expiringRecords = await prisma.sdsRecord.count({
       where: {
-        followUpDate: {
-          lte: thirtyDaysFromNow,
-          gte: new Date(),
-        },
+        followUpDate: { lte: thirtyDaysFromNow, gte: new Date() },
       },
     });
 
-    // Get category distribution
     const categoryDistribution = await prisma.category.findMany({
       select: {
         name: true,
@@ -62,7 +59,7 @@ export async function GET(request: NextRequest) {
         expiringThisMonth: expiringRecords,
       },
       recentActivity,
-      categoryDistribution: categoryDistribution.map(c => ({
+      categoryDistribution: categoryDistribution.map((c) => ({
         name: c.name,
         color: c.color,
         count: c._count.sdsRecords,

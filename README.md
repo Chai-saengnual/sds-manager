@@ -1,179 +1,116 @@
-# SDS Manager — Safety Data Sheet Management System
+# SDS Manager
 
-A production-ready, full-stack web application for managing Safety Data Sheets (SDS/MSDS) for industrial chemicals and maintenance products.
+Production-ready Safety Data Sheet (SDS) management system. Next.js 15 + Supabase Postgres + Prisma.
 
-## Features
+## ✨ Features
 
-- **Dashboard** — Real-time statistics, charts, dark/light theme
-- **SDS Record Management** — Full CRUD with PDF upload, multi-language support
-- **Smart Search & Filter** — Search by name, hazard, category, part number
-- **Multiple Views** — Gallery card, tile, and table/list views
-- **AI Integration** — PDF analysis, auto-fill, summaries, update recommendations
-- **AI Update Agent** — Scans records for expired reviews, duplicates, missing data
-- **Email Notifications** — Configurable expiration reminders (30/60/90 days)
-- **Audit Logging** — Complete change history and user action tracking
-- **Admin Panel** — User roles, categories, system settings
-- **Export** — Excel, CSV, PDF compliance reports
-- **Multi-language** — English and Thai fully supported
-- **QR Codes** — Quick access to SDS documents
-- **PWA Support** — Offline-capable progressive web app
+- **Dashboard** — real-time stats, recent activity, category distribution, compliance score
+- **SDS CRUD** — full create / edit / delete with bilingual EN+TH names, hazard summary, GHS classes, supplier, manufacturer
+- **Smart search & filter** — search by name, hazard, category, part number; filter by flammable / status / overdue / missing PDF
+- **3 view modes** — gallery cards, tiles, table
+- **Multi-language UI** — full English / Thai (react-i18next)
+- **Auth** — NextAuth.js credentials with role-based access (Admin / Editor / Viewer)
+- **AI analysis** — OpenAI integration for hazard extraction, duplicate detection, update recommendations (optional)
+- **Email reminders** — Resend integration for upcoming follow-ups (optional)
+- **Audit logging** — every change tracked with user, IP, before/after diff
+- **Export** — XLSX / CSV / PDF
+- **QR codes** — print-ready QR for each SDS record
+- **Cron jobs** — auto-flag outdated / expired records (Vercel cron-ready)
 
-## Tech Stack
+## 🛠 Tech stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui |
-| Backend | Next.js API Routes, Node.js |
-| Database | PostgreSQL, Prisma ORM |
-| Auth | NextAuth.js (credentials + OAuth) |
-| Storage | AWS S3 / Supabase Storage |
-| AI | OpenAI API (GPT-4) |
-| Email | Resend / Nodemailer |
-| Charts | Recharts |
-| Tables | TanStack Table |
+| Layer        | Tech                                  |
+| ------------ | ------------------------------------- |
+| Framework    | Next.js 15 (App Router, RSC)          |
+| Database     | Supabase Postgres + Prisma 6          |
+| Auth         | NextAuth.js v5                        |
+| Storage      | Supabase Storage (PDFs)               |
+| Email        | Resend                                |
+| AI           | OpenAI (optional)                     |
+| UI           | shadcn-style + Tailwind + Radix       |
+| Tables       | TanStack-style DataTable              |
+| Charts       | lucide-react icons (recharts-ready)   |
+| i18n         | react-i18next (EN + TH)               |
 
-## Quick Start
+## 🚀 Quick start
 
-### Prerequisites
+### 1. Supabase setup (5 min)
 
-- Node.js 20+
-- PostgreSQL 15+
-- pnpm / npm / yarn
-- OpenAI API key
-- Supabase account (or AWS S3)
+1. Create a project at https://supabase.com/dashboard
+2. **Settings → Database → Connection string → URI** → copy as `DATABASE_URL`
+3. **Settings → API** → copy URL + anon key + service role key
+4. **Storage → New bucket** → name: `sds-documents`, public: on (or set up RLS)
 
-### Installation
+### 2. Local dev
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/sds-manager.git
-cd sds-manager
-
-# Install dependencies
 pnpm install
-
-# Copy environment variables
 cp .env.example .env.local
+# fill in DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, NEXTAUTH_SECRET (openssl rand -base64 32), etc.
 
-# Edit .env.local with your credentials
-# DATABASE_URL=postgresql://...
-# OPENAI_API_KEY=sk-...
-# NEXTAUTH_SECRET=your-secret
-
-# Push database schema
-pnpm db:push
-
-# Seed demo data
-pnpm db:seed
-
-# Start development server
-pnpm dev
+pnpm db:push     # apply schema to Supabase
+pnpm db:seed     # seed admin/editor/viewer + 41 built-in SDS records + categories
+pnpm dev         # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+### 3. Deploy to Vercel
 
-## Environment Variables
+1. Push to GitHub (this repo is already connected to Vercel)
+2. Vercel → New Project → import `Chai-saengnual/sds-manager`
+3. **Environment variables** → paste from `.env.example` (use production values)
+4. **Build command**: `prisma generate && next build` (Vercel auto-detects Prisma)
+5. Deploy
 
-```env
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/sds_manager
+### 4. Optional: enable cron
 
-# NextAuth
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-super-secret-key
+`vercel.json` includes a daily cron at 02:00 UTC that flags outdated records and sends reminders. Set `CRON_SECRET` to protect the endpoint.
 
-# OpenAI
-OPENAI_API_KEY=sk-...
+## 🔐 Demo accounts (after seed)
 
-# Storage (choose one)
-# Option A: Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
+| Role   | Email                       | Password   |
+| ------ | --------------------------- | ---------- |
+| Admin  | admin@sdsmanager.com        | admin123   |
+| Editor | editor@sdsmanager.com       | admin123   |
+| Viewer | viewer@sdsmanager.com       | admin123   |
 
-# Option B: AWS S3
-AWS_ACCESS_KEY_ID=AKIA...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=us-east-1
-AWS_S3_BUCKET=sds-documents
+**Change passwords before production.**
 
-# Email (Resend)
-RESEND_API_KEY=re_...
-EMAIL_FROM=noreply@yourdomain.com
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-## Documentation
-
-- [Setup Guide](./docs/setup.md)
-- [API Documentation](./docs/api.md)
-- [Database Schema](./docs/schema.md)
-- [AI Features](./docs/ai-features.md)
-- [Deployment](./docs/deployment.md)
-
-## Project Structure
+## 📁 Project structure
 
 ```
-sds-manager/
-├── prisma/
-│   ├── schema.prisma
-│   └── seed.ts
-├── src/
-│   ├── app/
-│   │   ├── (auth)/
-│   │   ├── (dashboard)/
-│   │   │   ├── dashboard/
-│   │   │   ├── sds/
-│   │   │   ├── admin/
-│   │   │   └── settings/
-│   │   ├── api/
-│   │   │   ├── auth/
-│   │   │   ├── sds/
-│   │   │   ├── upload/
-│   │   │   ├── ai/
-│   │   │   └── export/
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── components/
-│   │   ├── ui/           # shadcn/ui components
-│   │   ├── dashboard/
-│   │   ├── sds/
-│   │   └── admin/
-│   ├── lib/
-│   │   ├── prisma.ts
-│   │   ├── auth.ts
-│   │   ├── openai.ts
-│   │   ├── storage.ts
-│   │   └── utils.ts
-│   ├── hooks/
-│   ├── types/
-│   └── locales/          # i18n (en, th)
-├── public/
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-└── README.md
+prisma/
+  schema.prisma      # User, SdsRecord, Category, AuditLog, Notification, UploadedFile, AiAnalysisResult
+  seed.ts            # 41 built-in SDS records + demo accounts
+src/
+  app/
+    (auth)/login     # NextAuth credentials
+    (dashboard)/     # Protected: dashboard, sds list, sds detail, sds/new, sds/[id]/edit
+    admin/           # Admin: users, settings, audit-logs
+    api/             # REST endpoints
+  components/
+    header, theme-*, language-switcher
+    ui/              # shadcn-style primitives
+  lib/
+    prisma, auth, audit, email, export, openai, storage, utils
+  hooks/
+  locales/           # en.json, th.json, i18n.ts
+  types/
+docs/
 ```
 
-## Deployment
+## 🌍 Bilingual
 
-### Vercel (Recommended)
+UI is fully translated (EN/TH) with `react-i18next`. Data model supports both English and Thai product names (`productNameEn`, `productNameTh`).
 
-1. Push to GitHub
-2. Import project in Vercel
-3. Configure environment variables
-4. Deploy
+## 🔄 Vercel cron (optional)
 
-### Docker
+`vercel.json` configures a daily job at 02:00 UTC that:
+- Flags records older than 365 days as `isOutdated`
+- Marks records past follow-up date as `EXPIRED`
+- Sends email reminders via Resend
 
-```bash
-docker-compose up -d
-```
+Set `CRON_SECRET` in env for endpoint security.
 
-See [deployment guide](./docs/deployment.md) for detailed instructions.
-
-## License
+## 📜 License
 
 MIT
