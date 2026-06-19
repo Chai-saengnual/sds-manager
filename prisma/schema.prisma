@@ -46,12 +46,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token     String? @db.Text
+  refresh_token     String?
+  access_token     String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -117,7 +117,7 @@ model SdsRecord {
   productNameEn   String
   productNameTh   String?
   categoryId      String?
-  hazardSummary   String?          @db.Text
+  hazardSummary   String?
   hazardClass     String[]        @default([])
   flammableStatus FlammableStatus @default(UNKNOWN)
   status          RecordStatus    @default(ACTIVE)
@@ -140,11 +140,11 @@ model SdsRecord {
   // Metadata
   language        String[]        @default(["en"])
   tags            String[]        @default([])
-  notes           String?         @db.Text
+  notes           String?
   
   // AI fields
-  aiSummary       String?         @db.Text
-  aiAnalysis      Json?
+  aiSummary       String?
+  aiAnalysis      String?
   isAiAnalyzed    Boolean         @default(false)
   
   // QR Code
@@ -227,14 +227,14 @@ model AiAnalysisResult {
   status        AnalysisStatus @default(PENDING)
   
   // Analysis results
-  extractedData    Json?
-  summary         String?       @db.Text
+  extractedData    String?
+  summary         String?
   recommendations  String[]     @default([])
   warnings         String[]      @default([])
   confidence       Float?
   
   // Raw response for debugging
-  rawResponse     String?       @db.Text
+  rawResponse     String?
   
   // Usage tracking
   tokensUsed      Int?
@@ -286,8 +286,8 @@ model Notification {
   // Content
   title         String
   titleTh       String?
-  message       String              @db.Text
-  messageTh     String?             @db.Text
+  message       String              
+  messageTh     String?             
   
   // Related records
   sdsRecordId   String?
@@ -301,7 +301,7 @@ model Notification {
   // Email specifics
   emailTo       String?
   emailSubject  String?
-  emailBody     String?             @db.Text
+  emailBody     String?             
   
   createdAt     DateTime            @default(now())
 
@@ -339,9 +339,9 @@ model AuditLog {
   entityId      String?
   
   // Change details
-  changes       Json?       // { field: { old: x, new: y } }
-  oldValues     Json?
-  newValues     Json?
+  changes       String?       // { field: { old: x, new: y } }
+  oldValues     String?
+  newValues     String?
   
   // Metadata
   ipAddress     String?
@@ -368,7 +368,7 @@ model AuditLog {
 model SystemSetting {
   id        String   @id @default(cuid())
   key       String   @unique
-  value     String   @db.Text
+  value     String   
   type      String   @default("string") // "string", "number", "boolean", "json"
   group     String   @default("general")
   label     String?

@@ -1,7 +1,7 @@
-import { UserRole, FlammableStatus, RecordStatus, PrismaClient } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { UserRole, FlammableStatus, RecordStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
 
 function parseMDY(s: string | null | undefined): Date | null {
   if (!s) return null;
@@ -81,161 +81,114 @@ function flammableMap(v: SeedRecord['flammable']): FlammableStatus {
   if (v === 'nonflammable') return FlammableStatus.NON_FLAMMABLE;
   return FlammableStatus.UNKNOWN;
 }
-
 function statusMap(s: SeedRecord['status']): RecordStatus {
   return s === 'active' ? RecordStatus.ACTIVE : RecordStatus.INACTIVE;
 }
-
-function isMissingPdf(r: SeedRecord): boolean {
-  return !r.enUrl || r.enUrl === '#';
-}
-
+function isMissingPdf(r: SeedRecord): boolean { return !r.enUrl || r.enUrl === '#'; }
 function isOutdated(r: SeedRecord): boolean {
   if (!r.followUp) return false;
   const d = parseMDY(r.followUp);
-  if (!d) return false;
-  return d.getTime() < Date.now();
+  return !!d && d.getTime() < Date.now();
 }
 
-async function main() {
-  console.log('🌱 Seeding database...');
-
-  // ---------------- USERS ----------------
-  const hashedPassword = await bcrypt.hash('admin123', 12);
-
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@sdsmanager.com' },
-    update: {},
-    create: {
-      email: 'admin@sdsmanager.com',
-      name: 'Admin User',
-      password: hashedPassword,
-      role: UserRole.ADMIN,
-      emailVerified: new Date(),
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { email: 'editor@sdsmanager.com' },
-    update: {},
-    create: {
-      email: 'editor@sdsmanager.com',
-      name: 'Editor User',
-      password: hashedPassword,
-      role: UserRole.EDITOR,
-      emailVerified: new Date(),
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { email: 'viewer@sdsmanager.com' },
-    update: {},
-    create: {
-      email: 'viewer@sdsmanager.com',
-      name: 'Viewer User',
-      password: hashedPassword,
-      role: UserRole.VIEWER,
-      emailVerified: new Date(),
-    },
-  });
-  console.log('✅ Users created');
-
-  // ---------------- CATEGORIES (matched to HTML subjects) ----------------
-  const categorySeeds = [
-    { name: 'Lubricant',  nameTh: 'สารหล่อลื่น',     color: '#7B4F00', icon: 'droplet',     description: 'Industrial lubricants and greases' },
-    { name: 'Aerosol',    nameTh: 'สเปรย์',          color: '#C2410C', icon: 'spray-can',   description: 'Aerosol products and sprays' },
-    { name: 'Solvent',    nameTh: 'ตัวทำละลาย',      color: '#B91C1C', icon: 'flask-conical', description: 'Solvents and thinners' },
-    { name: 'Cleaner',    nameTh: 'น้ำยาทำความสะอาด', color: '#065F46', icon: 'spray-can',   description: 'Cleaning agents and degreasers' },
-    { name: 'Adhesive',   nameTh: 'กาวและสารยึดติด', color: '#6A1B9A', icon: 'package',     description: 'Adhesives, sealants, threadlockers' },
-    { name: 'Oil',        nameTh: 'น้ำมัน',           color: '#0055A4', icon: 'droplet',     description: 'Industrial oils and lubricants' },
-    { name: 'Silicone',   nameTh: 'ซิลิโคน',         color: '#1D4ED8', icon: 'flask-conical', description: 'Silicone fluids, sealants, elastomers' },
-    { name: 'Solder',     nameTh: 'ลวดบัดกรี',       color: '#166534', icon: 'flame',       description: 'Solder wires, bars, and fluxes' },
-    { name: 'Other',      nameTh: 'อื่นๆ',            color: '#6B7280', icon: 'package',     description: 'Miscellaneous chemical products' },
-  ];
-
-  const categoryMap = new Map<string, string>();
-  for (const c of categorySeeds) {
-    const upserted = await prisma.category.upsert({
-      where: { name: c.name },
-      update: { nameTh: c.nameTh, color: c.color, icon: c.icon, description: c.description },
-      create: c,
-    });
-    categoryMap.set(c.name, upserted.id);
+export async function POST(request: NextRequest) {
+  const seedSecret = process.env.SEED_SECRET;
+  const provided = request.headers.get('x-seed-secret') || new URL(request.url).searchParams.get('secret');
+  if (seedSecret && provided !== seedSecret) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  console.log('✅ Categories created');
 
-  // ---------------- SDS RECORDS (41 built-in) ----------------
-  let created = 0, updated = 0;
-  for (const r of BUILTIN) {
-    const categoryId = categoryMap.get(r.subject) ?? null;
-    const data: Parameters<typeof prisma.sdsRecord.create>[0]['data'] = {
-      partNumber: r.pn || null,
-      productNameEn: r.title,
-      productNameTh: r.thName || null,
-      categoryId,
-      hazardSummary: r.hazard || null,
-      flammableStatus: flammableMap(r.flammable),
-      status: statusMap(r.status),
-      revisionDate: parseMDY(r.revDate),
-      followUpDate: parseMDY(r.followUp),
-      productImageUrl: null,
-      sdsPdfEnUrl: r.enUrl && r.enUrl !== '#' ? r.enUrl : null,
-      sdsPdfThUrl: r.thUrl && r.thUrl !== '' ? r.thUrl : null,
-      externalLink: r.productInfo || null,
-      language: ['en', 'th'],
-      tags: [r.subject, r.flammable === 'flammable' ? 'flammable' : r.flammable === 'nonflammable' ? 'non-flammable' : 'unknown-flammable'].filter(Boolean),
-      isOutdated: isOutdated(r),
-      isMissingPdf: isMissingPdf(r),
-      createdById: admin.id,
-      updatedById: admin.id,
-    };
-    const existing = await prisma.sdsRecord.findFirst({ where: { productNameEn: r.title } });
-    if (existing) {
-      await prisma.sdsRecord.update({ where: { id: existing.id }, data });
-      updated++;
-    } else {
-      await prisma.sdsRecord.create({ data });
-      created++;
+  try {
+    const existing = await prisma.user.count();
+    if (existing > 0) {
+      return NextResponse.json({ message: 'Already seeded', users: existing });
     }
+
+    const hashedPassword = await bcrypt.hash('admin123', 12);
+    const admin = await prisma.user.create({
+      data: {
+        email: 'admin@sdsmanager.com',
+        name: 'Admin User',
+        password: hashedPassword,
+        role: UserRole.ADMIN,
+        emailVerified: new Date(),
+      },
+    });
+    await prisma.user.create({
+      data: {
+        email: 'editor@sdsmanager.com',
+        name: 'Editor User',
+        password: hashedPassword,
+        role: UserRole.EDITOR,
+        emailVerified: new Date(),
+      },
+    });
+    await prisma.user.create({
+      data: {
+        email: 'viewer@sdsmanager.com',
+        name: 'Viewer User',
+        password: hashedPassword,
+        role: UserRole.VIEWER,
+        emailVerified: new Date(),
+      },
+    });
+
+    const categorySeeds = [
+      { name: 'Lubricant',  nameTh: 'สารหล่อลื่น',     color: '#7B4F00' },
+      { name: 'Aerosol',    nameTh: 'สเปรย์',          color: '#C2410C' },
+      { name: 'Solvent',    nameTh: 'ตัวทำละลาย',      color: '#B91C1C' },
+      { name: 'Cleaner',    nameTh: 'น้ำยาทำความสะอาด', color: '#065F46' },
+      { name: 'Adhesive',   nameTh: 'กาวและสารยึดติด', color: '#6A1B9A' },
+      { name: 'Oil',        nameTh: 'น้ำมัน',           color: '#0055A4' },
+      { name: 'Silicone',   nameTh: 'ซิลิโคน',         color: '#1D4ED8' },
+      { name: 'Solder',     nameTh: 'ลวดบัดกรี',       color: '#166534' },
+      { name: 'Other',      nameTh: 'อื่นๆ',            color: '#6B7280' },
+    ];
+    const categoryMap = new Map<string, string>();
+    for (const c of categorySeeds) {
+      const upserted = await prisma.category.upsert({ where: { name: c.name }, update: {}, create: c });
+      categoryMap.set(c.name, upserted.id);
+    }
+
+    for (const r of BUILTIN) {
+      await prisma.sdsRecord.create({
+        data: {
+          partNumber: r.pn || null,
+          productNameEn: r.title,
+          productNameTh: r.thName || null,
+          categoryId: categoryMap.get(r.subject) ?? null,
+          hazardSummary: r.hazard || null,
+          flammableStatus: flammableMap(r.flammable),
+          status: statusMap(r.status),
+          revisionDate: parseMDY(r.revDate),
+          followUpDate: parseMDY(r.followUp),
+          sdsPdfEnUrl: r.enUrl && r.enUrl !== '#' ? r.enUrl : null,
+          sdsPdfThUrl: r.thUrl || null,
+          externalLink: r.productInfo || null,
+          isOutdated: isOutdated(r),
+          isMissingPdf: isMissingPdf(r),
+          createdById: admin.id,
+          updatedById: admin.id,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Database seeded',
+      users: 3,
+      categories: categorySeeds.length,
+      records: BUILTIN.length,
+    });
+  } catch (error) {
+    console.error('Seed error:', error);
+    return NextResponse.json(
+      { error: 'Seed failed', detail: error instanceof Error ? error.message : 'Unknown' },
+      { status: 500 },
+    );
   }
-  console.log(`✅ SDS records: ${created} created, ${updated} updated (target: 41)`);
-
-  // ---------------- SYSTEM SETTINGS ----------------
-  const settings = [
-    { key: 'email_reminder_30_days',  value: 'true',  type: 'boolean', group: 'notifications' },
-    { key: 'email_reminder_60_days',  value: 'true',  type: 'boolean', group: 'notifications' },
-    { key: 'email_reminder_90_days',  value: 'false', type: 'boolean', group: 'notifications' },
-    { key: 'default_language',        value: 'en',    type: 'string',  group: 'general' },
-    { key: 'ai_auto_analyze',         value: 'false', type: 'boolean', group: 'ai' },
-    { key: 'ai_update_threshold_days', value: '365',  type: 'number',  group: 'ai' },
-    { key: 'company_name',            value: 'Lab Sonde / SKL', type: 'string', group: 'company' },
-    { key: 'items_per_page',          value: '20',    type: 'number',  group: 'general' },
-    { key: 'outdated_threshold_days', value: '365',   type: 'number',  group: 'notifications' },
-  ];
-  for (const s of settings) {
-    await prisma.systemSetting.upsert({ where: { key: s.key }, update: s, create: s });
-  }
-  console.log('✅ System settings created');
-
-  // ---------------- AUDIT LOG ----------------
-  await prisma.auditLog.create({
-    data: {
-      userId: admin.id,
-      action: 'CREATE',
-      entityType: 'system',
-      description: `Seeded ${BUILTIN.length} built-in SDS records`,
-    },
-  });
-  console.log('✅ Audit log created');
-
-  console.log('\n🎉 Done.\n');
-  console.log('📧 Demo accounts:');
-  console.log('   admin@sdsmanager.com  / admin123  (ADMIN)');
-  console.log('   editor@sdsmanager.com / admin123  (EDITOR)');
-  console.log('   viewer@sdsmanager.com / admin123  (VIEWER)');
-  console.log(`\n📦 Seeded ${BUILTIN.length} SDS records (Lab Sonde / SKL list)\n`);
 }
 
-main()
-  .catch((e) => { console.error('❌ Seeding failed:', e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+export async function GET() {
+  return POST(new Request('http://localhost/api/seed') as unknown as NextRequest);
+}
