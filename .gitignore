@@ -39,3 +39,9 @@ next-env.d.ts
 
 # uploads
 /uploads
+
+# Facebook extract script artifacts
+scripts/facebook-to-notion/.venv/
+scripts/facebook-to-notion/__pycache__/
+scripts/facebook-to-notion/facebook-extract-out/
+**/facebook-extract-out/
