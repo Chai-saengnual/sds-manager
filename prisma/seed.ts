@@ -1,8 +1,7 @@
-import { PrismaClient, UserRole, FlammableStatus, RecordStatus } from '@prisma/client';
+import { UserRole, FlammableStatus, RecordStatus, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { PrismaClient as DirectPrismaClient } from '@prisma/client';
 
-const prisma = new DirectPrismaClient();
+const prisma = new PrismaClient();
 
 function parseMDY(s: string | null | undefined): Date | null {
   if (!s) return null;
