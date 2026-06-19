@@ -99,8 +99,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
     }
 
-    const userData: Record<string, unknown> = {
-      name: validatedData.name,
+    const userData: {
+      name: string | null;
+      email: string;
+      role: typeof validatedData.role;
+      isActive: boolean;
+      password?: string;
+    } = {
+      name: validatedData.name ?? null,
       email: validatedData.email,
       role: validatedData.role,
       isActive: validatedData.isActive,
