@@ -1,17 +1,36 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { v4 as uuidv4 } from 'crypto';
+import { randomUUID } from 'crypto';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const uuidv4 = randomUUID;
 
-// Supabase client for browser
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+let _supabase: SupabaseClient | null = null;
+let _supabaseAdmin: SupabaseClient | null = null;
 
-// Supabase client for server
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+function getSupabaseUrl(): string {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+}
+
+// Supabase client for browser (lazy init)
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    if (!_supabase) {
+      _supabase = createClient(getSupabaseUrl(), process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '');
+    }
+    return (_supabase as unknown as Record<string | symbol, unknown>)[prop as string];
+  },
+});
+
+// Supabase client for server (lazy init)
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    if (!_supabaseAdmin) {
+      _supabaseAdmin = createClient(getSupabaseUrl(), process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+    }
+    return (_supabaseAdmin as unknown as Record<string | symbol, unknown>)[prop as string];
+  },
+});
 
 // AWS S3 client
 const s3Client = new S3Client({
@@ -49,7 +68,7 @@ export async function uploadFile(
   try {
     if (getStorageProvider() === 'supabase') {
       const arrayBuffer = file instanceof File ? await file.arrayBuffer() : file;
-      const buffer = Buffer.from(arrayBuffer);
+      const buffer = Buffer.from(arrayBuffer as ArrayBuffer);
 
       const { data, error } = await supabaseAdmin.storage
         .from(s3Bucket)
@@ -69,7 +88,7 @@ export async function uploadFile(
       return { success: true, url: urlData.publicUrl, storageKey: data.path };
     } else {
       const arrayBuffer = file instanceof File ? await file.arrayBuffer() : file;
-      const buffer = Buffer.from(arrayBuffer);
+      const buffer = Buffer.from(arrayBuffer as ArrayBuffer);
 
       await s3Client.send(
         new PutObjectCommand({

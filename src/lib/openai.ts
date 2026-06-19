@@ -1,8 +1,13 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiInstance: OpenAI | null = null;
+function getOpenAI(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) return null;
+  if (!openaiInstance) {
+    openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiInstance;
+}
 
 export interface SdsAnalysisResult {
   chemicalNames: string[];
@@ -45,6 +50,8 @@ ${textContent.slice(0, 10000)}
 
 Return ONLY valid JSON, no markdown or extra text.`;
 
+  const openai = getOpenAI();
+  if (!openai) throw new Error("OpenAI API key not configured");
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -89,6 +96,8 @@ export async function generateAiSummary(textContent: string): Promise<string> {
 SDS Text:
 ${textContent.slice(0, 8000)}`;
 
+  const openai = getOpenAI();
+  if (!openai) throw new Error("OpenAI API key not configured");
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -133,6 +142,8 @@ ${records.map((r, i) => `[${i}] ${r.id}: ${r.productNameEn}${r.productNameTh ? `
 
 Return ONLY valid JSON.`;
 
+  const openai = getOpenAI();
+  if (!openai) throw new Error("OpenAI API key not configured");
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -248,6 +259,8 @@ ${expiringRecords.slice(0, 20).map(r => `- ${r.productNameEn} (${r.status})${r.i
 
 Generate a professional compliance report in HTML format.`;
 
+  const openai = getOpenAI();
+  if (!openai) throw new Error("OpenAI API key not configured");
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -279,6 +292,8 @@ Question: ${question}
 
 Provide a helpful, accurate response about chemical safety, hazards, PPE, storage, or first aid. If you're unsure or the information isn't in the provided context, say so clearly.`;
 
+  const openai = getOpenAI();
+  if (!openai) throw new Error("OpenAI API key not configured");
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -303,4 +318,4 @@ Provide a helpful, accurate response about chemical safety, hazards, PPE, storag
   }
 }
 
-export { openai };
+export { getOpenAI as openai };

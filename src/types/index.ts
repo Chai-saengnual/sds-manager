@@ -1,9 +1,6 @@
 import { FlammableStatus, RecordStatus, UserRole, NotificationType } from '@prisma/client';
 
-export type FlammableStatus = FlammableStatus;
-export type RecordStatus = RecordStatus;
-export type UserRole = UserRole;
-export type NotificationType = NotificationType;
+export type { FlammableStatus, RecordStatus, UserRole, NotificationType };
 
 export interface SdsRecordWithRelations {
   id: string;

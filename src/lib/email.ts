@@ -1,7 +1,14 @@
 import { Resend } from 'resend';
 import { format } from 'date-fns';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendInstance: Resend | null = null;
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (!resendInstance) {
+    resendInstance = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendInstance;
+}
 
 export interface EmailOptions {
   to: string | string[];
@@ -21,6 +28,10 @@ export interface EmailResult {
 }
 
 async function sendEmail(options: EmailOptions): Promise<EmailResult> {
+  const resend = getResend();
+  if (!resend) {
+    return { success: false, error: 'RESEND_API_KEY not configured' };
+  }
   try {
     const fromEmail = options.from || process.env.EMAIL_FROM || 'SDS Manager <noreply@example.com>';
 
